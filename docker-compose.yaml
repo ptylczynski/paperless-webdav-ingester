@@ -1,0 +1,15 @@
+version: '3'
+services:
+  database:
+    image: postgres
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_PASSWORD: webdav-ingester
+      POSTGRES_USER: webdav-ingester
+      POSTGRES_DB: webdav-ingester
+    volumes:
+      - db:/var/lib/postgresql/data
+
+volumes:
+  db:

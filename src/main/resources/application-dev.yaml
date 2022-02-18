@@ -1,0 +1,9 @@
+spring:
+  datasource:
+    username: webdav-ingester
+    password: webdav-ingester
+    url: jdbc:postgresql://localhost:5432/webdav-ingester
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update
