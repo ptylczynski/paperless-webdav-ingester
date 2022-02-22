@@ -13,10 +13,10 @@ public class Resource {
     @Id
     @GeneratedValue
     private Long id;
+    private String externalPath;
+    private String internalPath;
     @Convert(converter = FileStringConverter.class)
     private File file;
     // generated on webdav side
     private String etag;
-    // generated on ingester side to avoid file duplication if ingested same file from two different directories
-    private String hash;
 }
