@@ -9,8 +9,15 @@ spring:
       ddl-auto: update
 
 webdav:
-  user: piotr
+  username: piotr
   password: Instrukcja10
+  host: https://webdav.ptl.cloud/
 
 storage:
-  base-dir: .
+  base-dir: data/
+  formats: pdf, epub
+
+paperless:
+  host: https://paperless.ptl.cloud
+  password: instrukcja
+  login: piotr
