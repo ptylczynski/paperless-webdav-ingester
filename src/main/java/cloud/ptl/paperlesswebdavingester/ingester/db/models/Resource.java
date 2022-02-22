@@ -1,6 +1,5 @@
 package cloud.ptl.paperlesswebdavingester.ingester.db.models;
 
-import cloud.ptl.paperlesswebdavingester.ingester.db.converters.FileStringConverter;
 import lombok.Data;
 
 import javax.persistence.*;
@@ -15,8 +14,13 @@ public class Resource {
     private Long id;
     private String externalPath;
     private String internalPath;
-    @Convert(converter = FileStringConverter.class)
+    @Transient
     private File file;
     // generated on webdav side
     private String etag;
+
+    @PostLoad
+    public void init() {
+        file = new File(internalPath);
+    }
 }
