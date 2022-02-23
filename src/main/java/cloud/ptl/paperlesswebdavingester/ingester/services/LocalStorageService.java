@@ -32,7 +32,7 @@ public class LocalStorageService {
         this.resourceRepository = resourceRepository;
     }
 
-    private Path createPath(String path) {
+    private Path createPathFromExternalPath(String path) {
         String fileName = path.substring(path.lastIndexOf("/"));
         Path internalPath = Path.of(basePath, fileName);
         if (resourceRepository.existsByInternalPath(internalPath.toString())) {
@@ -45,10 +45,9 @@ public class LocalStorageService {
     }
 
     public Resource removeLocalCopy(Resource resource) {
-        File file = resource.getFile();
+        File file = new File(resource.getInternalPath());
         if (FileUtils.deleteQuietly(file)) {
-            resource.setFile(null);
-            resource.setInternalPath(null);
+            resource.setIsLocalCopyPresent(false);
             return resourceRepository.save(resource);
         }
         log.error("Cannot delete faile: " + file.getAbsolutePath());
@@ -56,7 +55,7 @@ public class LocalStorageService {
     }
 
     public Resource save(InputStream inputStream, DavResource davResource) throws IOException {
-        final Path destinationPath = createPath(davResource.getPath());
+        final Path destinationPath = createPathFromExternalPath(davResource.getPath());
         Files.copy(inputStream, destinationPath, StandardCopyOption.REPLACE_EXISTING);
         IOUtils.closeQuietly(inputStream);
         File file = destinationPath.toFile();
@@ -85,14 +84,14 @@ public class LocalStorageService {
             Resource newResource = new Resource();
             newResource.setEtag(davResource.getEtag());
             newResource.setExternalPath(davResource.getPath());
-            newResource.setFile(file);
             newResource.setInternalPath(file.getAbsolutePath());
+            newResource.setIsLocalCopyPresent(true);
             return resourceRepository.save(newResource);
         } else {
             Resource resource = resourceOptional.get();
             resource.setEtag(davResource.getEtag());
-            resource.setFile(file);
             resource.setInternalPath(file.getAbsolutePath());
+            resource.setIsLocalCopyPresent(true);
             return resourceRepository.save(resource);
         }
     }

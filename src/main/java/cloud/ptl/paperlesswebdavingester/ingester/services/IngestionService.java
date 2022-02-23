@@ -1,6 +1,7 @@
 package cloud.ptl.paperlesswebdavingester.ingester.services;
 
 import cloud.ptl.paperlesswebdavingester.ingester.db.models.Resource;
+import cloud.ptl.paperlesswebdavingester.ingester.paperless.PaperlessService;
 import com.github.sardine.DavResource;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
