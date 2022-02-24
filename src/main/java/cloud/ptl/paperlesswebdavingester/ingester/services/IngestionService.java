@@ -1,6 +1,7 @@
 package cloud.ptl.paperlesswebdavingester.ingester.services;
 
 import cloud.ptl.paperlesswebdavingester.ingester.db.models.Resource;
+import cloud.ptl.paperlesswebdavingester.ingester.db.repositories.ResourceRepository;
 import cloud.ptl.paperlesswebdavingester.ingester.paperless.PaperlessService;
 import com.github.sardine.DavResource;
 import lombok.AllArgsConstructor;
@@ -19,12 +20,19 @@ public class IngestionService {
     private final WebDavService webDavService;
     private final LocalStorageService storageService;
     private final PaperlessService paperlessService;
+    private final ResourceRepository resourceRepository;
 
     public void startIngest() throws IOException, URISyntaxException {
         startIngest("/");
     }
 
     public void startIngest(String root) throws IOException, URISyntaxException {
+        for (Resource resource : resourceRepository.findAll()) {
+            log.info("Removing: " + resource);
+            paperlessService.delete(resource);
+            resourceRepository.delete(resource);
+            storageService.removeLocalCopy(resource);
+        }
         traverse(root);
     }
 
