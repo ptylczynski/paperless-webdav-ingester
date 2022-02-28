@@ -1,8 +1,8 @@
 package cloud.ptl.paperlesswebdavingester.vaadin.pages;
 
-import cloud.ptl.paperlesswebdavingester.ingester.ingestion.HardIngestionStrategy;
 import cloud.ptl.paperlesswebdavingester.ingester.ingestion.IngestionException;
 import cloud.ptl.paperlesswebdavingester.ingester.ingestion.IngestionMode;
+import cloud.ptl.paperlesswebdavingester.ingester.ingestion.strategies.HardIngestionStrategy;
 import cloud.ptl.paperlesswebdavingester.ingester.services.IngestionService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.notification.Notification;

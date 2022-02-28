@@ -2,7 +2,7 @@ package cloud.ptl.paperlesswebdavingester.ingester.services;
 
 import cloud.ptl.paperlesswebdavingester.ingester.ingestion.IngestionException;
 import cloud.ptl.paperlesswebdavingester.ingester.ingestion.IngestionMode;
-import cloud.ptl.paperlesswebdavingester.ingester.ingestion.IngestionStrategy;
+import cloud.ptl.paperlesswebdavingester.ingester.ingestion.strategies.IngestionStrategy;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -19,7 +19,15 @@ public class IngestionService {
     public void start(IngestionMode ingestionMode, Map<Object, Object> params) throws IngestionException {
         for (IngestionStrategy ingestionStrategy : ingestionStrategies) {
             if (ingestionStrategy.supports(ingestionMode)) {
-                ingestionStrategy.ingest(params);
+                if (ingestionStrategy.canStart()) {
+                    log.info("Starting ingestion via ingester strategy: " + ingestionMode.getClass().getSimpleName());
+                    ingestionStrategy.ingest(params);
+                } else {
+                    log.warn("Ingester" + ingestionStrategy.getClass().getSimpleName() +
+                            " was found but cannot be used");
+                    throw new IngestionException("Ingester" + ingestionStrategy.getClass().getSimpleName() +
+                            " was found but cannot be used");
+                }
             }
         }
     }

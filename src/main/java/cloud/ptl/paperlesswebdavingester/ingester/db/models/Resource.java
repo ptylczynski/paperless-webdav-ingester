@@ -3,10 +3,7 @@ package cloud.ptl.paperlesswebdavingester.ingester.db.models;
 import lombok.Data;
 import org.apache.commons.codec.digest.DigestUtils;
 
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.Id;
-import javax.persistence.Table;
+import javax.persistence.*;
 
 @Entity
 @Table(name = "file")
@@ -21,6 +18,8 @@ public class Resource {
     private Boolean isLocalCopyPresent;
     // generated on webdav side
     private String etag;
+    @ManyToOne
+    private Status ingestedIn;
 
     public String getHashedExternalPath() {
         return DigestUtils.sha256Hex(externalPath);
