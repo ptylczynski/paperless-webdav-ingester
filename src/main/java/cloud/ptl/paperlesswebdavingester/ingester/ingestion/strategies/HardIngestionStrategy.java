@@ -1,7 +1,12 @@
-package cloud.ptl.paperlesswebdavingester.ingester.ingestion;
+package cloud.ptl.paperlesswebdavingester.ingester.ingestion.strategies;
 
 import cloud.ptl.paperlesswebdavingester.ingester.db.models.Resource;
+import cloud.ptl.paperlesswebdavingester.ingester.db.models.Status;
 import cloud.ptl.paperlesswebdavingester.ingester.db.repositories.ResourceRepository;
+import cloud.ptl.paperlesswebdavingester.ingester.db.repositories.StatusRepository;
+import cloud.ptl.paperlesswebdavingester.ingester.ingestion.IngestionException;
+import cloud.ptl.paperlesswebdavingester.ingester.ingestion.IngestionMode;
+import cloud.ptl.paperlesswebdavingester.ingester.ingestion.IngestionTracker;
 import cloud.ptl.paperlesswebdavingester.ingester.paperless.PaperlessService;
 import cloud.ptl.paperlesswebdavingester.ingester.services.LocalStorageService;
 import cloud.ptl.paperlesswebdavingester.ingester.services.WebDavService;
@@ -24,13 +29,19 @@ public class HardIngestionStrategy implements IngestionStrategy {
     private final LocalStorageService storageService;
     private final PaperlessService paperlessService;
     private final ResourceRepository resourceRepository;
+    private final IngestionTracker ingestionTracker;
+    private final StatusRepository statusRepository;
+    private Status status;
 
     public HardIngestionStrategy(WebDavService webDavService, LocalStorageService storageService,
-            PaperlessService paperlessService, ResourceRepository resourceRepository) {
+            PaperlessService paperlessService, ResourceRepository resourceRepository, IngestionTracker ingestionTracker,
+            StatusRepository statusRepository) {
         this.webDavService = webDavService;
         this.storageService = storageService;
         this.paperlessService = paperlessService;
         this.resourceRepository = resourceRepository;
+        this.ingestionTracker = ingestionTracker;
+        this.statusRepository = statusRepository;
     }
 
     @Override
@@ -39,8 +50,14 @@ public class HardIngestionStrategy implements IngestionStrategy {
     }
 
     @Override
+    public boolean canStart() {
+        return !statusRepository.existsByIsRunningEquals(true);
+    }
+
+    @Override
     public void ingest(Map<Object, Object> params) throws IngestionException {
         try {
+            status = this.ingestionTracker.addOngoingIngestion(IngestionMode.HARD);
             purge();
             startIngestion(params);
         } catch (IOException | URISyntaxException e) {
@@ -59,6 +76,7 @@ public class HardIngestionStrategy implements IngestionStrategy {
         } else {
             traverse("/");
         }
+        status = ingestionTracker.endIngestion(status);
     }
 
     private void purge() {
@@ -97,6 +115,7 @@ public class HardIngestionStrategy implements IngestionStrategy {
         final InputStream inputStream = webDavService.get(webDavResource);
         Resource resource = storageService.save(inputStream, webDavResource);
         paperlessService.save(resource);
+        status = ingestionTracker.addIngestedResource(resource, status);
     }
 
     public enum Params {
