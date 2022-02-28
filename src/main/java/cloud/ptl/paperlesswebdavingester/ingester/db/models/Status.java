@@ -1,13 +1,13 @@
 package cloud.ptl.paperlesswebdavingester.ingester.db.models;
 
+import cloud.ptl.paperlesswebdavingester.ingester.ingestion.IngestionMode;
 import lombok.Data;
-import org.springframework.data.annotation.CreatedDate;
+import lombok.ToString;
+import org.hibernate.annotations.CreationTimestamp;
 
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.Id;
-import javax.persistence.Table;
-import java.util.Date;
+import javax.persistence.*;
+import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "status")
@@ -17,7 +17,12 @@ public class Status {
     @GeneratedValue
     private Long id;
     private boolean isRunning;
-    @CreatedDate
-    private Date runTime;
-    private Date endTime;
+    @CreationTimestamp
+    private LocalDateTime runTime;
+    private LocalDateTime endTime;
+    @OneToMany(cascade = CascadeType.ALL, mappedBy = "ingestedIn", fetch = FetchType.EAGER)
+    @ToString.Exclude
+    private List<Resource> ingestedResources;
+    @Enumerated(EnumType.STRING)
+    private IngestionMode ingestionMode;
 }
