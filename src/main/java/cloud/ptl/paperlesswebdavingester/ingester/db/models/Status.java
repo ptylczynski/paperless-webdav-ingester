@@ -20,7 +20,7 @@ public class Status {
     @CreationTimestamp
     private LocalDateTime runTime;
     private LocalDateTime endTime;
-    @OneToMany(cascade = CascadeType.ALL, mappedBy = "ingestedIn", fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "ingestedIn", fetch = FetchType.EAGER)
     @ToString.Exclude
     private List<Resource> ingestedResources;
     @Enumerated(EnumType.STRING)
