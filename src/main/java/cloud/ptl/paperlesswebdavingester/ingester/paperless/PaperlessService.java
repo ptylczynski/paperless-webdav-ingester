@@ -51,7 +51,7 @@ public class PaperlessService {
     public void save(Resource resource) {
         try {
             saveWithHashedName(resource);
-            getIdFromPaperless(resource);
+            getIdFromPaperless(resource, true);
             swapNameTo(resource, resource.getFileName());
         } catch (RestClientException e) {
             log.error("Exception during saving resource to paperless: " + e.getMessage());
@@ -68,7 +68,7 @@ public class PaperlessService {
         return storageService.removeLocalCopy(resource);
     }
 
-    private Resource getIdFromPaperless(Resource resource) {
+    private Resource getIdFromPaperless(Resource resource, boolean makeBackOff) {
         int retries = 0;
         Map<String, String> requestVariables = Map.of("query", resource.getHashedExternalPath());
         while (retries < 15) {
@@ -84,10 +84,15 @@ public class PaperlessService {
                     resource.setPaperlessId(paperlessDocument.get().getId());
                     return resourceRepository.save(resource);
                 }
-                log.info("Paperless is still processing document");
             } catch (NullPointerException e) {
                 log.warn("Cannot download document from paperless because of: " + e.getMessage() + " Retrying...");
             }
+            if (!makeBackOff) {
+                log.info(
+                        "Paperless does not returned proper document, but makeBackOff was set to false, returning null..");
+                return null;
+            }
+            log.info("Paperless is still processing document");
             retries++;
         }
         throw new RestClientException("Cannot download id of document: " + resource);
@@ -117,13 +122,14 @@ public class PaperlessService {
         Long id = resource.getPaperlessId();
         if (id == null) {
             log.warn("Resource: " + resource + " has no assigned paperless id, trying to obtain it");
-            Resource resource1 = getIdFromPaperless(resource);
-            id = resource1.getPaperlessId();
-            if (id == null) {
-                log.error(
-                        "Cannot remove this resource: " + resource + " even after retry to get its id from paperless");
+            Resource resource1 = getIdFromPaperless(resource, false);
+            if (resource1 == null) {
+                log.error("Cannot obtain additional information from paperless about record: " + resource +
+                        ". Deleting it from DB");
+                resourceRepository.delete(resource);
                 return;
             }
+            id = resource1.getPaperlessId();
         }
         try {
             paperlessClient.delete().uri("api/documents/" + id + "/").retrieve().bodyToMono(String.class).block();
