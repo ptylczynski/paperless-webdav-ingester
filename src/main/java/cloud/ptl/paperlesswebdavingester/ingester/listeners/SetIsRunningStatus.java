@@ -4,6 +4,7 @@ import cloud.ptl.paperlesswebdavingester.ingester.db.models.Status;
 import cloud.ptl.paperlesswebdavingester.ingester.db.repositories.StatusRepository;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -11,6 +12,7 @@ import java.util.List;
 @Component
 @Data
 @Slf4j
+@Order(20)
 public class SetIsRunningStatus implements StartupAction {
     private final StatusRepository statusRepository;
 
