@@ -2,6 +2,7 @@ package cloud.ptl.paperlesswebdavingester.ingester.listeners;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -10,6 +11,7 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 import reactor.netty.http.client.HttpClient;
 
 @Component
+@Order(10)
 @Slf4j
 public class CheckConnectivity implements StartupAction {
     @Value("${paperless.host}")
