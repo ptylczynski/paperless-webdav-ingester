@@ -21,3 +21,4 @@ paperless:
   host: https://paperless.ptl.cloud
   password: instrukcja
   login: piotr
+  default-tags: auto-add

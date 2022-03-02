@@ -1,4 +1,4 @@
-package cloud.ptl.paperlesswebdavingester.ingester.paperless;
+package cloud.ptl.paperlesswebdavingester.ingester.paperless.dto;
 
 import lombok.Data;
 

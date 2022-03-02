@@ -1,7 +1,6 @@
 package cloud.ptl.paperlesswebdavingester.ingester.services;
 
 import cloud.ptl.paperlesswebdavingester.ingester.db.models.Resource;
-import cloud.ptl.paperlesswebdavingester.ingester.db.repositories.ResourceRepository;
 import com.github.sardine.DavResource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.digest.DigestUtils;
@@ -22,20 +21,20 @@ import java.util.Optional;
 @Component
 @Slf4j
 public class LocalStorageService {
-    private final ResourceRepository resourceRepository;
+    private final ResourceService resourceService;
     @Value("${storage.base-dir}")
     private String basePath;
     @Value("#{'${storage.formats}'.split(',')}")
     private List<String> supportedFormats;
 
-    public LocalStorageService(ResourceRepository resourceRepository) {
-        this.resourceRepository = resourceRepository;
+    public LocalStorageService(ResourceService resourceService) {
+        this.resourceService = resourceService;
     }
 
     private Path createPathFromExternalPath(String path) {
         String fileName = path.substring(path.lastIndexOf("/"));
         Path internalPath = Path.of(basePath, fileName);
-        if (resourceRepository.existsByInternalPath(internalPath.toString())) {
+        if (resourceService.existsByInternalPath(internalPath.toString())) {
             // there is more than one file with this name
             // add slug to name
             final String slug = DigestUtils.sha256Hex(path).substring(0, 5);
@@ -48,7 +47,7 @@ public class LocalStorageService {
         File file = new File(resource.getInternalPath());
         if (FileUtils.deleteQuietly(file)) {
             resource.setIsLocalCopyPresent(false);
-            return resourceRepository.save(resource);
+            return resourceService.save(resource);
         }
         log.error("Cannot delete faile: " + file.getAbsolutePath());
         return resource;
@@ -59,7 +58,7 @@ public class LocalStorageService {
         Files.copy(inputStream, destinationPath, StandardCopyOption.REPLACE_EXISTING);
         IOUtils.closeQuietly(inputStream);
         File file = destinationPath.toFile();
-        return updateResource(davResource, file);
+        return resourceService.updateResource(davResource, file);
     }
 
     public boolean isSupported(DavResource davResource) {
@@ -70,29 +69,11 @@ public class LocalStorageService {
 
     public boolean isChanged(DavResource davResource) {
         final String externalPath = davResource.getPath();
-        Optional<Resource> resourceOptional = resourceRepository.findByExternalPath(externalPath);
+        Optional<Resource> resourceOptional = resourceService.findByExternalPath(externalPath);
         if (resourceOptional.isEmpty()) {
             return true;
         } else {
             return !resourceOptional.get().getEtag().equals(davResource.getEtag());
-        }
-    }
-
-    private Resource updateResource(DavResource davResource, File file) {
-        Optional<Resource> resourceOptional = resourceRepository.findByExternalPath(davResource.getPath());
-        if (resourceOptional.isEmpty()) {
-            Resource newResource = new Resource();
-            newResource.setEtag(davResource.getEtag());
-            newResource.setExternalPath(davResource.getPath());
-            newResource.setInternalPath(file.getAbsolutePath());
-            newResource.setIsLocalCopyPresent(true);
-            return resourceRepository.save(newResource);
-        } else {
-            Resource resource = resourceOptional.get();
-            resource.setEtag(davResource.getEtag());
-            resource.setInternalPath(file.getAbsolutePath());
-            resource.setIsLocalCopyPresent(true);
-            return resourceRepository.save(resource);
         }
     }
 }
