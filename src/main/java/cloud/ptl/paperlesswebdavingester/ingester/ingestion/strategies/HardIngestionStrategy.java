@@ -2,13 +2,13 @@ package cloud.ptl.paperlesswebdavingester.ingester.ingestion.strategies;
 
 import cloud.ptl.paperlesswebdavingester.ingester.db.models.Resource;
 import cloud.ptl.paperlesswebdavingester.ingester.db.models.Status;
-import cloud.ptl.paperlesswebdavingester.ingester.db.repositories.ResourceRepository;
 import cloud.ptl.paperlesswebdavingester.ingester.db.repositories.StatusRepository;
 import cloud.ptl.paperlesswebdavingester.ingester.ingestion.IngestionException;
 import cloud.ptl.paperlesswebdavingester.ingester.ingestion.IngestionMode;
 import cloud.ptl.paperlesswebdavingester.ingester.ingestion.IngestionTracker;
 import cloud.ptl.paperlesswebdavingester.ingester.paperless.PaperlessService;
 import cloud.ptl.paperlesswebdavingester.ingester.services.LocalStorageService;
+import cloud.ptl.paperlesswebdavingester.ingester.services.ResourceService;
 import cloud.ptl.paperlesswebdavingester.ingester.services.WebDavService;
 import com.github.sardine.DavResource;
 import lombok.Data;
@@ -28,18 +28,18 @@ public class HardIngestionStrategy implements IngestionStrategy {
     private final WebDavService webDavService;
     private final LocalStorageService storageService;
     private final PaperlessService paperlessService;
-    private final ResourceRepository resourceRepository;
+    private final ResourceService resourceService;
     private final IngestionTracker ingestionTracker;
     private final StatusRepository statusRepository;
     private Status status;
 
     public HardIngestionStrategy(WebDavService webDavService, LocalStorageService storageService,
-            PaperlessService paperlessService, ResourceRepository resourceRepository, IngestionTracker ingestionTracker,
+            PaperlessService paperlessService, ResourceService resourceService, IngestionTracker ingestionTracker,
             StatusRepository statusRepository) {
         this.webDavService = webDavService;
         this.storageService = storageService;
         this.paperlessService = paperlessService;
-        this.resourceRepository = resourceRepository;
+        this.resourceService = resourceService;
         this.ingestionTracker = ingestionTracker;
         this.statusRepository = statusRepository;
     }
@@ -80,10 +80,10 @@ public class HardIngestionStrategy implements IngestionStrategy {
     }
 
     private void purge() {
-        for (Resource resource : resourceRepository.findAll()) {
+        for (Resource resource : resourceService.findAll()) {
             log.info("Removing: " + resource);
             paperlessService.delete(resource);
-            resourceRepository.delete(resource);
+            resourceService.delete(resource);
             storageService.removeLocalCopy(resource);
         }
     }
@@ -115,7 +115,9 @@ public class HardIngestionStrategy implements IngestionStrategy {
         final InputStream inputStream = webDavService.get(webDavResource);
         Resource resource = storageService.save(inputStream, webDavResource);
         paperlessService.save(resource);
+        resource = resourceService.save(resource);
         status = ingestionTracker.addIngestedResource(resource, status);
+        log.info("Resource saved as: " + resource);
     }
 
     public enum Params {
