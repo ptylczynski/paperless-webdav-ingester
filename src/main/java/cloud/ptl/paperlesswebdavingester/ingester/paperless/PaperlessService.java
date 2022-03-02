@@ -2,9 +2,16 @@ package cloud.ptl.paperlesswebdavingester.ingester.paperless;
 
 import cloud.ptl.paperlesswebdavingester.ingester.db.models.PaperlessConnectionInfo;
 import cloud.ptl.paperlesswebdavingester.ingester.db.models.Resource;
+import cloud.ptl.paperlesswebdavingester.ingester.db.models.Tag;
 import cloud.ptl.paperlesswebdavingester.ingester.db.repositories.ResourceRepository;
+import cloud.ptl.paperlesswebdavingester.ingester.paperless.dto.PaperlessDocument;
+import cloud.ptl.paperlesswebdavingester.ingester.paperless.dto.PaperlessSearchResponse;
+import cloud.ptl.paperlesswebdavingester.ingester.paperless.dto.PaperlessTag;
+import cloud.ptl.paperlesswebdavingester.ingester.paperless.dto.PaperlessTagsResponse;
 import cloud.ptl.paperlesswebdavingester.ingester.services.LocalStorageService;
+import cloud.ptl.paperlesswebdavingester.ingester.services.TagService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -21,9 +28,12 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 
 import javax.annotation.PostConstruct;
 import java.io.File;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -32,12 +42,14 @@ public class PaperlessService {
     private final LocalStorageService storageService;
     private WebClient paperlessClient;
     private final ResourceRepository resourceRepository;
+    private final TagService tagService;
 
     public PaperlessService(PaperlessConnectionInfo paperlessConnectionInfo, LocalStorageService storageService,
-            ResourceRepository resourceRepository) {
+            ResourceRepository resourceRepository, @Lazy TagService tagService) {
         this.paperlessConnectionInfo = paperlessConnectionInfo;
         this.storageService = storageService;
         this.resourceRepository = resourceRepository;
+        this.tagService = tagService;
     }
 
     @PostConstruct
@@ -100,13 +112,17 @@ public class PaperlessService {
 
     public void swapNameTo(Resource resource, String newName) {
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+        // String tag = tagService.getDefaultTags().stream().map(e -> e.getPaperlessId().toString()).findFirst().orElse("");
+        Tag tag = tagService.getDefaultTags().get(0);
         form.add("title", newName);
         form.add("archive_serial_number", resource.getId().toString());
         form.add("correspondent", "1");
         form.add("document_type", "1");
+        form.add("tags", tag.getPaperlessId().toString());
         paperlessClient.put().uri("api/documents/" + resource.getPaperlessId() + "/")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED).body(BodyInserters.fromFormData(form)).retrieve()
                 .bodyToMono(PaperlessDocument.class).block();
+        resource.getTags().add(tag);
     }
 
     private void makeTimeout(int retry) {
@@ -144,5 +160,22 @@ public class PaperlessService {
             log.error("Status code from paperless was 404, removing phantom record: " + resource);
             resourceRepository.delete(resource);
         }
+    }
+
+    public List<Tag> getAllTags() {
+        try {
+            PaperlessTagsResponse response = paperlessClient.get().uri("api/tags/").retrieve()
+                    .bodyToMono(PaperlessTagsResponse.class).block();
+            return response.getResults().stream().map(PaperlessTag::toEntity).collect(Collectors.toList());
+        } catch (NullPointerException ex) {
+            log.warn("Cannot download tags from paperless because of: " + ex.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    public Tag createTag(String name) {
+        PaperlessTag response = paperlessClient.post().uri("api/tags/").body(BodyInserters.fromFormData("name", name))
+                .retrieve().bodyToMono(PaperlessTag.class).block();
+        return response.toEntity();
     }
 }
