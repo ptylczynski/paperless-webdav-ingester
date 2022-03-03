@@ -1,13 +1,11 @@
 package cloud.ptl.paperlesswebdavingester.ingester.paperless;
 
-import cloud.ptl.paperlesswebdavingester.ingester.db.models.PaperlessConnectionInfo;
+import cloud.ptl.paperlesswebdavingester.ingester.db.models.Correspondent;
 import cloud.ptl.paperlesswebdavingester.ingester.db.models.Resource;
 import cloud.ptl.paperlesswebdavingester.ingester.db.models.Tag;
 import cloud.ptl.paperlesswebdavingester.ingester.db.repositories.ResourceRepository;
-import cloud.ptl.paperlesswebdavingester.ingester.paperless.dto.PaperlessDocument;
-import cloud.ptl.paperlesswebdavingester.ingester.paperless.dto.PaperlessSearchResponse;
-import cloud.ptl.paperlesswebdavingester.ingester.paperless.dto.PaperlessTag;
-import cloud.ptl.paperlesswebdavingester.ingester.paperless.dto.PaperlessTagsResponse;
+import cloud.ptl.paperlesswebdavingester.ingester.paperless.dto.*;
+import cloud.ptl.paperlesswebdavingester.ingester.services.CorrespondentService;
 import cloud.ptl.paperlesswebdavingester.ingester.services.LocalStorageService;
 import cloud.ptl.paperlesswebdavingester.ingester.services.TagService;
 import lombok.extern.slf4j.Slf4j;
@@ -43,13 +41,16 @@ public class PaperlessService {
     private WebClient paperlessClient;
     private final ResourceRepository resourceRepository;
     private final TagService tagService;
+    private final CorrespondentService correspondentService;
 
     public PaperlessService(PaperlessConnectionInfo paperlessConnectionInfo, LocalStorageService storageService,
-            ResourceRepository resourceRepository, @Lazy TagService tagService) {
+            ResourceRepository resourceRepository, @Lazy TagService tagService,
+            @Lazy CorrespondentService correspondentService) {
         this.paperlessConnectionInfo = paperlessConnectionInfo;
         this.storageService = storageService;
         this.resourceRepository = resourceRepository;
         this.tagService = tagService;
+        this.correspondentService = correspondentService;
     }
 
     @PostConstruct
@@ -112,17 +113,18 @@ public class PaperlessService {
 
     public void swapNameTo(Resource resource, String newName) {
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
-        // String tag = tagService.getDefaultTags().stream().map(e -> e.getPaperlessId().toString()).findFirst().orElse("");
         Tag tag = tagService.getDefaultTags().get(0);
+        Correspondent correspondent = correspondentService.getDefaultCorrespondent().get(0);
         form.add("title", newName);
         form.add("archive_serial_number", resource.getId().toString());
-        form.add("correspondent", "1");
+        form.add("correspondent", correspondent.getPaperlessId().toString());
         form.add("document_type", "1");
         form.add("tags", tag.getPaperlessId().toString());
         paperlessClient.put().uri("api/documents/" + resource.getPaperlessId() + "/")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED).body(BodyInserters.fromFormData(form)).retrieve()
                 .bodyToMono(PaperlessDocument.class).block();
         resource.getTags().add(tag);
+        resource.setCorrespondent(correspondent);
     }
 
     private void makeTimeout(int retry) {
@@ -176,6 +178,24 @@ public class PaperlessService {
     public Tag createTag(String name) {
         PaperlessTag response = paperlessClient.post().uri("api/tags/").body(BodyInserters.fromFormData("name", name))
                 .retrieve().bodyToMono(PaperlessTag.class).block();
+        return response.toEntity();
+    }
+
+    public List<Correspondent> getAllCorrespondents() {
+        try {
+            PaperlessCorrespondentResponse response = paperlessClient.get().uri("api/correspondents/").retrieve()
+                    .bodyToMono(PaperlessCorrespondentResponse.class).block();
+            return response.getResults().stream().map(PaperlessCorrespondent::toEntity).collect(Collectors.toList());
+        } catch (NullPointerException ex) {
+            log.warn("Cannot download tags from paperless because of: " + ex.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    public Correspondent createCorrespondent(String name) {
+        PaperlessCorrespondent response = paperlessClient.post().uri("api/correspondents/")
+                .body(BodyInserters.fromFormData("name", name)).retrieve().bodyToMono(PaperlessCorrespondent.class)
+                .block();
         return response.toEntity();
     }
 }
