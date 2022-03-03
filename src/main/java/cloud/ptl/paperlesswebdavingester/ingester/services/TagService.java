@@ -16,7 +16,7 @@ public class TagService {
     private final PaperlessService paperlessService;
     private final TagRepository tagRepository;
 
-    @Value("#{'${paperless.default-tags}'.split(',')}")
+    @Value("#{'${paperless.default.tags}'.split(',')}")
     private List<String> defaultTags;
 
     public TagService(PaperlessService paperlessService, TagRepository tagRepository) {
