@@ -22,3 +22,4 @@ paperless:
   password: instrukcja
   login: piotr
   default-tags: auto-add
+  default-correspondent: ingester
