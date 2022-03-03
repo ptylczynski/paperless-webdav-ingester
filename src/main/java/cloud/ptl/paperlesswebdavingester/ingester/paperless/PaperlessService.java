@@ -1,11 +1,13 @@
 package cloud.ptl.paperlesswebdavingester.ingester.paperless;
 
 import cloud.ptl.paperlesswebdavingester.ingester.db.models.Correspondent;
+import cloud.ptl.paperlesswebdavingester.ingester.db.models.DocumentType;
 import cloud.ptl.paperlesswebdavingester.ingester.db.models.Resource;
 import cloud.ptl.paperlesswebdavingester.ingester.db.models.Tag;
 import cloud.ptl.paperlesswebdavingester.ingester.db.repositories.ResourceRepository;
 import cloud.ptl.paperlesswebdavingester.ingester.paperless.dto.*;
 import cloud.ptl.paperlesswebdavingester.ingester.services.CorrespondentService;
+import cloud.ptl.paperlesswebdavingester.ingester.services.DocumentTypeService;
 import cloud.ptl.paperlesswebdavingester.ingester.services.LocalStorageService;
 import cloud.ptl.paperlesswebdavingester.ingester.services.TagService;
 import lombok.extern.slf4j.Slf4j;
@@ -42,15 +44,17 @@ public class PaperlessService {
     private final ResourceRepository resourceRepository;
     private final TagService tagService;
     private final CorrespondentService correspondentService;
+    private final DocumentTypeService documentTypeService;
 
     public PaperlessService(PaperlessConnectionInfo paperlessConnectionInfo, LocalStorageService storageService,
             ResourceRepository resourceRepository, @Lazy TagService tagService,
-            @Lazy CorrespondentService correspondentService) {
+            @Lazy CorrespondentService correspondentService, @Lazy DocumentTypeService documentTypeService) {
         this.paperlessConnectionInfo = paperlessConnectionInfo;
         this.storageService = storageService;
         this.resourceRepository = resourceRepository;
         this.tagService = tagService;
         this.correspondentService = correspondentService;
+        this.documentTypeService = documentTypeService;
     }
 
     @PostConstruct
@@ -115,16 +119,18 @@ public class PaperlessService {
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
         Tag tag = tagService.getDefaultTags().get(0);
         Correspondent correspondent = correspondentService.getDefaultCorrespondent().get(0);
+        DocumentType documentType = documentTypeService.getDefaultDocumentType().get(0);
         form.add("title", newName);
         form.add("archive_serial_number", resource.getId().toString());
         form.add("correspondent", correspondent.getPaperlessId().toString());
-        form.add("document_type", "1");
+        form.add("document_type", documentType.getPaperlessId().toString());
         form.add("tags", tag.getPaperlessId().toString());
         paperlessClient.put().uri("api/documents/" + resource.getPaperlessId() + "/")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED).body(BodyInserters.fromFormData(form)).retrieve()
                 .bodyToMono(PaperlessDocument.class).block();
         resource.getTags().add(tag);
         resource.setCorrespondent(correspondent);
+        resource.setDocumentType(documentType);
     }
 
     private void makeTimeout(int retry) {
@@ -195,6 +201,25 @@ public class PaperlessService {
     public Correspondent createCorrespondent(String name) {
         PaperlessCorrespondent response = paperlessClient.post().uri("api/correspondents/")
                 .body(BodyInserters.fromFormData("name", name)).retrieve().bodyToMono(PaperlessCorrespondent.class)
+                .block();
+        return response.toEntity();
+    }
+
+    public List<DocumentType> getAllDocumentTypes() {
+        try {
+            PaperlessDocumentTypeResponse response = paperlessClient.get().uri("api/document_types/").retrieve()
+                    .bodyToMono(PaperlessDocumentTypeResponse.class).block();
+            return response.getResults().stream().map(PaperlessDocumentType::toEntity).collect(Collectors.toList());
+        } catch (NullPointerException ex) {
+            log.warn("Cannot download tags from paperless because of: " + ex.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+
+    public DocumentType createDocumentType(String name) {
+        PaperlessDocumentType response = paperlessClient.post().uri("api/document_types/")
+                .body(BodyInserters.fromFormData("name", name)).retrieve().bodyToMono(PaperlessDocumentType.class)
                 .block();
         return response.toEntity();
     }

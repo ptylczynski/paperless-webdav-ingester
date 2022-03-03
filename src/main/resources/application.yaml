@@ -23,3 +23,4 @@ paperless:
   login: piotr
   default-tags: auto-add
   default-correspondent: ingester
+  default-document-type: ingester-default

@@ -26,6 +26,8 @@ public class Resource {
     private List<Tag> tags;
     @ManyToOne(fetch = FetchType.EAGER)
     private Correspondent correspondent;
+    @ManyToOne
+    private DocumentType documentType;
 
     public String getHashedExternalPath() {
         return DigestUtils.sha256Hex(externalPath);
