@@ -16,7 +16,7 @@ public class DocumentTypeService {
     private final PaperlessService paperlessService;
     private final DocumentTypeRepository documentTypeRepository;
 
-    @Value("${paperless.default-document-type}")
+    @Value("${paperless.default.document-type}")
     private String defaultDocumentType;
 
     public DocumentTypeService(PaperlessService paperlessService, DocumentTypeRepository documentTypeRepository) {
