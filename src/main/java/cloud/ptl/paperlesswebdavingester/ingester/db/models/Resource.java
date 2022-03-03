@@ -24,6 +24,8 @@ public class Resource {
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(name = "tags_resources", joinColumns = @JoinColumn(name = "resource_id"), inverseJoinColumns = @JoinColumn(name = "tag_id"))
     private List<Tag> tags;
+    @ManyToOne(fetch = FetchType.EAGER)
+    private Correspondent correspondent;
 
     public String getHashedExternalPath() {
         return DigestUtils.sha256Hex(externalPath);

@@ -1,4 +1,4 @@
-package cloud.ptl.paperlesswebdavingester.ingester.db.models;
+package cloud.ptl.paperlesswebdavingester.ingester.paperless;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
