@@ -16,7 +16,7 @@ public class CorrespondentService {
     private final PaperlessService paperlessService;
     private final CorrespondentRepository correspondentRepository;
 
-    @Value("${paperless.default-correspondent}")
+    @Value("${paperless.default.correspondent}")
     private String defaultCorrespondent;
 
     public CorrespondentService(PaperlessService paperlessService, CorrespondentRepository correspondentRepository) {
