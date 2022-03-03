@@ -21,6 +21,7 @@ paperless:
   host: https://paperless.ptl.cloud
   password: instrukcja
   login: piotr
-  default-tags: auto-add
-  default-correspondent: ingester
-  default-document-type: ingester-default
+  default:
+    tags: auto-add
+    correspondent: ingester
+    document-type: ingester-default
