@@ -12,6 +12,8 @@ webdav:
   username: piotr
   password: Instrukcja10
   host: https://webdav.ptl.cloud/
+  default:
+    sync-storage-path: paperless-docs/
 
 storage:
   base-dir: data/
