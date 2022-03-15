@@ -4,6 +4,8 @@ import lombok.Data;
 import org.apache.commons.codec.digest.DigestUtils;
 
 import javax.persistence.*;
+import java.io.File;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
@@ -28,6 +30,7 @@ public class Resource {
     private Correspondent correspondent;
     @ManyToOne
     private DocumentType documentType;
+    private LocalDateTime lastEdited;
 
     public String getHashedExternalPath() {
         return DigestUtils.sha256Hex(externalPath);
@@ -35,5 +38,14 @@ public class Resource {
 
     public String getFileName() {
         return internalPath.substring(internalPath.lastIndexOf("/") + 1);
+    }
+
+    public File getFile() {
+        return new File(internalPath);
+    }
+
+    public LocalDateTime updateLastEdited() {
+        setLastEdited(LocalDateTime.now());
+        return LocalDateTime.now();
     }
 }

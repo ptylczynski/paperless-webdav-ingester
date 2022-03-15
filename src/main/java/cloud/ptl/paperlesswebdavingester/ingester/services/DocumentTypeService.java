@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Component
 @Slf4j
@@ -31,6 +32,17 @@ public class DocumentTypeService {
 
     public DocumentType createDocumentType(DocumentType documentType) {
         return documentTypeRepository.save(documentType);
+    }
+
+    public DocumentType findByPaperlessIdOrFetchFromPaperless(String id) {
+        if (id == null) {
+            return null;
+        }
+        Optional<DocumentType> documentTypes = documentTypeRepository.findByPaperlessId(Long.valueOf(id));
+        if (documentTypes.isEmpty()) {
+            return createDocumentType(paperlessService.findDocumentTypeByPaperlessId(Long.valueOf(id)));
+        }
+        return documentTypes.get();
     }
 
     public List<DocumentType> syncWithPaperless() {

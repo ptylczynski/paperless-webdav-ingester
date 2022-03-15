@@ -7,6 +7,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -16,11 +17,15 @@ import java.util.Map;
 public class IngestionService {
     private List<IngestionStrategy> ingestionStrategies;
 
+    public void start(IngestionMode ingestionMode) throws IngestionException {
+        start(ingestionMode, Collections.emptyMap());
+    }
+
     public void start(IngestionMode ingestionMode, Map<Object, Object> params) throws IngestionException {
         for (IngestionStrategy ingestionStrategy : ingestionStrategies) {
             if (ingestionStrategy.supports(ingestionMode)) {
                 if (ingestionStrategy.canStart()) {
-                    log.info("Starting ingestion via ingester strategy: " + ingestionMode.getClass().getSimpleName());
+                    log.info("Starting ingestion via ingester strategy: " + ingestionMode);
                     ingestionStrategy.ingest(params);
                 } else {
                     log.warn("Ingester" + ingestionStrategy.getClass().getSimpleName() +

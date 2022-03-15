@@ -6,6 +6,7 @@ import org.springframework.data.repository.CrudRepository;
 import java.util.Optional;
 
 public interface ResourceRepository extends CrudRepository<Resource, Long> {
+    Optional<Resource> findByPaperlessId(Long paperlessId);
     Optional<Resource> findByExternalPath(String externalPath);
     boolean existsByInternalPath(String internalPath);
 }

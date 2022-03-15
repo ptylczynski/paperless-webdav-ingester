@@ -1,8 +1,11 @@
 package cloud.ptl.paperlesswebdavingester.ingester.services;
 
+import cloud.ptl.paperlesswebdavingester.ingester.db.models.Resource;
+import cloud.ptl.paperlesswebdavingester.ingester.db.models.Tag;
 import com.github.sardine.DavResource;
 import com.github.sardine.Sardine;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.io.FileUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -22,13 +25,15 @@ public class WebDavService {
     private final Sardine webDavClient;
     @Value("${webdav.host}")
     private String host;
+    @Value("${webdav.default.sync-storage-path}")
+    private String defaultSyncStoragePath;
 
     public WebDavService(LocalStorageService storageService, Sardine webDavClient) {
         this.webDavClient = webDavClient;
         this.storageService = storageService;
     }
 
-    private String assembleFullPath(String path) throws MalformedURLException, URISyntaxException {
+    private String assembleEncodedPath(String path) throws MalformedURLException, URISyntaxException {
         // remove last slash if added
         if (host.endsWith("/")) {
             host = host.substring(0, host.length() - 1);
@@ -42,12 +47,42 @@ public class WebDavService {
                 url.getQuery(), url.getRef()).toASCIIString();
     }
 
+    public String assembleExternalPath(Resource resource) {
+        List<Tag> tags = resource.getTags();
+        Tag pathTag = tags.stream().filter(e -> e.getName().startsWith("f:")).findFirst()
+                .orElse(new Tag(null, "f:", null, null));
+        String path = pathTag.getName().substring(2);
+        if (defaultSyncStoragePath.startsWith("/")) {
+            defaultSyncStoragePath = defaultSyncStoragePath.substring(1);
+        }
+        if (defaultSyncStoragePath.endsWith("/")) {
+            defaultSyncStoragePath = defaultSyncStoragePath.substring(0, defaultSyncStoragePath.length() - 1);
+        }
+        if (path.isBlank()) {
+            return "/" + defaultSyncStoragePath + "/" + resource.getFileName();
+        }
+        return "/" + defaultSyncStoragePath + "/" + pathTag.getName().substring(2) + "/" + resource.getFileName();
+    }
+
+    public DavResource save(Resource resource) throws IOException, URISyntaxException {
+        if (resource.getExternalPath() == null || resource.getExternalPath().isBlank()) {
+            resource.setExternalPath(assembleExternalPath(resource));
+        }
+        byte[] data = FileUtils.readFileToByteArray(resource.getFile());
+        webDavClient.put(assembleEncodedPath(resource.getExternalPath()), data);
+        List<DavResource> davResources = webDavClient.list(assembleEncodedPath(resource.getExternalPath()));
+        if (davResources.isEmpty()) {
+            throw new IOException("Cannot get file from WebDav server");
+        }
+        return davResources.get(0);
+    }
+
     public List<DavResource> list(DavResource resource) throws IOException, URISyntaxException {
         return list(resource.getPath());
     }
 
     public List<DavResource> list(String path) throws IOException, URISyntaxException {
-        return webDavClient.list(assembleFullPath(path));
+        return webDavClient.list(assembleEncodedPath(path));
     }
 
     public InputStream get(DavResource resource) throws IOException, URISyntaxException {
@@ -55,6 +90,6 @@ public class WebDavService {
     }
 
     public InputStream get(String path) throws IOException, URISyntaxException {
-        return webDavClient.get(assembleFullPath(path));
+        return webDavClient.get(assembleEncodedPath(path));
     }
 }

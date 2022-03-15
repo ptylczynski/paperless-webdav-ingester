@@ -13,6 +13,7 @@ import cloud.ptl.paperlesswebdavingester.ingester.services.TagService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.MultipartBodyBuilder;
@@ -25,9 +26,11 @@ import org.springframework.web.reactive.function.client.ExchangeFilterFunctions;
 import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+import reactor.core.publisher.Flux;
 
 import javax.annotation.PostConstruct;
 import java.io.File;
+import java.time.ZoneId;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -39,22 +42,22 @@ import java.util.stream.Collectors;
 @Slf4j
 public class PaperlessService {
     private final PaperlessConnectionInfo paperlessConnectionInfo;
-    private final LocalStorageService storageService;
     private WebClient paperlessClient;
     private final ResourceRepository resourceRepository;
     private final TagService tagService;
     private final CorrespondentService correspondentService;
     private final DocumentTypeService documentTypeService;
+    private final LocalStorageService localStorageService;
 
-    public PaperlessService(PaperlessConnectionInfo paperlessConnectionInfo, LocalStorageService storageService,
-            ResourceRepository resourceRepository, @Lazy TagService tagService,
-            @Lazy CorrespondentService correspondentService, @Lazy DocumentTypeService documentTypeService) {
+    public PaperlessService(PaperlessConnectionInfo paperlessConnectionInfo, ResourceRepository resourceRepository,
+            @Lazy TagService tagService, @Lazy CorrespondentService correspondentService,
+            @Lazy DocumentTypeService documentTypeService, @Lazy LocalStorageService localStorageService) {
         this.paperlessConnectionInfo = paperlessConnectionInfo;
-        this.storageService = storageService;
         this.resourceRepository = resourceRepository;
         this.tagService = tagService;
         this.correspondentService = correspondentService;
         this.documentTypeService = documentTypeService;
+        this.localStorageService = localStorageService;
     }
 
     @PostConstruct
@@ -82,7 +85,7 @@ public class PaperlessService {
         paperlessClient.post().uri("api/documents/post_document/").contentType(MediaType.MULTIPART_FORM_DATA)
                 .body(BodyInserters.fromMultipartData(multipartBodyBuilder.build())).retrieve().bodyToMono(String.class)
                 .block();
-        return storageService.removeLocalCopy(resource);
+        return localStorageService.removeLocalCopy(resource);
     }
 
     private Resource getIdFromPaperless(Resource resource, boolean makeBackOff) {
@@ -113,6 +116,31 @@ public class PaperlessService {
             retries++;
         }
         throw new RestClientException("Cannot download id of document: " + resource);
+    }
+
+    public List<PaperlessDocument> getAllDocuments() {
+        try {
+            PaperlessSearchResponse paperlessSearchResponse = paperlessClient.get().uri("api/documents/").retrieve()
+                    .bodyToMono(PaperlessSearchResponse.class).block();
+            return paperlessSearchResponse.getResults();
+        } catch (NullPointerException e) {
+            log.warn("Paperless returned no documents");
+            return Collections.emptyList();
+        }
+    }
+
+    public boolean isChanged(PaperlessDocument paperlessDocument) {
+        Optional<Resource> resourceFromDB = resourceRepository.findByPaperlessId(paperlessDocument.getId());
+        return resourceFromDB.map(value -> value.getLastEdited()
+                        .isBefore(paperlessDocument.getModified().toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime()))
+                .orElse(true);
+    }
+
+    public File download(Resource resource, PaperlessDocument paperlessDocument) {
+        Flux<DataBuffer> dataBufferFlux = paperlessClient.get()
+                .uri("/api/documents/" + resource.getPaperlessId() + "/download/").retrieve()
+                .bodyToFlux(DataBuffer.class);
+        return localStorageService.save(resource, dataBufferFlux, paperlessDocument).getFile();
     }
 
     public void swapNameTo(Resource resource, String newName) {
@@ -170,6 +198,17 @@ public class PaperlessService {
         }
     }
 
+    public Tag findTagByPaperlessId(Long id) {
+        try {
+            PaperlessTag response = paperlessClient.get().uri("api/tags/" + id + "/").retrieve()
+                    .bodyToMono(PaperlessTag.class).block();
+            return response.toEntity();
+        } catch (NullPointerException ex) {
+            log.warn("Cannot download tags from paperless because of: " + ex.getMessage());
+            return null;
+        }
+    }
+
     public List<Tag> getAllTags() {
         try {
             PaperlessTagsResponse response = paperlessClient.get().uri("api/tags/").retrieve()
@@ -198,6 +237,17 @@ public class PaperlessService {
         }
     }
 
+    public Correspondent findCorrespondentByPaperlessId(Long id) {
+        try {
+            PaperlessCorrespondent response = paperlessClient.get().uri("api/correspondents/" + id + "/").retrieve()
+                    .bodyToMono(PaperlessCorrespondent.class).block();
+            return response.toEntity();
+        } catch (NullPointerException ex) {
+            log.warn("Cannot download tags from paperless because of: " + ex.getMessage());
+            return null;
+        }
+    }
+
     public Correspondent createCorrespondent(String name) {
         PaperlessCorrespondent response = paperlessClient.post().uri("api/correspondents/")
                 .body(BodyInserters.fromFormData("name", name)).retrieve().bodyToMono(PaperlessCorrespondent.class)
@@ -216,6 +266,16 @@ public class PaperlessService {
         }
     }
 
+    public DocumentType findDocumentTypeByPaperlessId(Long id) {
+        try {
+            PaperlessDocumentType response = paperlessClient.get().uri("api/document_types/" + id + "/").retrieve()
+                    .bodyToMono(PaperlessDocumentType.class).block();
+            return response.toEntity();
+        } catch (NullPointerException ex) {
+            log.warn("Cannot download tags from paperless because of: " + ex.getMessage());
+            return null;
+        }
+    }
 
     public DocumentType createDocumentType(String name) {
         PaperlessDocumentType response = paperlessClient.post().uri("api/document_types/")

@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Component
 @Slf4j
@@ -31,6 +32,18 @@ public class CorrespondentService {
 
     public Correspondent createCorrespondent(Correspondent correspondent) {
         return correspondentRepository.save(correspondent);
+    }
+
+    public Correspondent findByPaperlessIdOrFetchFromPaperless(String id) {
+        if (id == null) {
+            return null;
+        }
+        Optional<Correspondent> correspondentOptional = correspondentRepository.findByPaperlessId(Long.valueOf(id));
+        if (correspondentOptional.isEmpty()) {
+            return createCorrespondent(paperlessService.findCorrespondentByPaperlessId(Long.valueOf(id)));
+        } else {
+            return correspondentOptional.get();
+        }
     }
 
     public List<Correspondent> syncWithPaperless() {
