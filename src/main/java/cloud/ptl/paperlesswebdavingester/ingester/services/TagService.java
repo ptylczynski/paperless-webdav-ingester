@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Component
 @Slf4j
@@ -31,6 +32,21 @@ public class TagService {
 
     public Tag createTag(Tag tag) {
         return tagRepository.save(tag);
+    }
+
+    public List<Tag> findAllByIdOrFetchFromPaperless(List<String> ids) {
+        if (ids == null) {
+            return new ArrayList<>();
+        }
+        List<Tag> tags = new ArrayList<>();
+        for (String id : ids) {
+            Optional<Tag> optionalTag = tagRepository.findByPaperlessId(Long.valueOf(id));
+            if (optionalTag.isEmpty()) {
+                tags.add(createTag(paperlessService.findTagByPaperlessId(Long.valueOf(id))));
+            }
+            tags.add(optionalTag.get());
+        }
+        return tags;
     }
 
     public List<Tag> syncWithPaperless() {
@@ -74,5 +90,14 @@ public class TagService {
 
     public List<Tag> getDefaultTags() {
         return tagRepository.findAllByNameIn(defaultTags);
+    }
+
+    public List<Tag> addMissingDefaultTags(List<Tag> tags) {
+        List<Tag> dbDefaultTags = getDefaultTags();
+        tags.forEach(dbDefaultTags::remove);
+        if (!dbDefaultTags.isEmpty()) {
+            tags.addAll(dbDefaultTags);
+        }
+        return tags;
     }
 }
