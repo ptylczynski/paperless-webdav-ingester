@@ -18,14 +18,24 @@ public class MainPage extends VerticalLayout {
 
     public MainPage(IngestionService ingestionService) {
         this.ingestionService = ingestionService;
-        Button btn = new Button("start");
-        btn.addClickListener(e -> {
+        Button harvestWebDav = new Button("Harvest WebDav");
+        harvestWebDav.addClickListener(e -> {
             try {
-                ingestionService.start(IngestionMode.HARD, Map.of(HardIngestionStrategy.Params.ROOT, "/piotr"));
+                ingestionService.start(IngestionMode.HARD_SYNC_FROM_WEBDAV,
+                        Map.of(HardIngestionStrategy.Params.ROOT, "/piotr"));
             } catch (IngestionException ex) {
                 new Notification(ex.getMessage()).open();
             }
         });
-        add(btn);
+        add(harvestWebDav);
+        Button harvestPaperless = new Button("Harvest Paperless");
+        harvestPaperless.addClickListener(e -> {
+            try {
+                ingestionService.start(IngestionMode.HARD_SYNC_FROM_PAPERLESS);
+            } catch (IngestionException ex) {
+                new Notification(ex.getMessage());
+            }
+        });
+        add(harvestPaperless);
     }
 }
