@@ -1,11 +1,16 @@
 package cloud.ptl.paperlesswebdavingester.ingester.services;
 
+import cloud.ptl.paperlesswebdavingester.ingester.db.models.Correspondent;
+import cloud.ptl.paperlesswebdavingester.ingester.db.models.DocumentType;
 import cloud.ptl.paperlesswebdavingester.ingester.db.models.Resource;
+import cloud.ptl.paperlesswebdavingester.ingester.db.models.Tag;
 import cloud.ptl.paperlesswebdavingester.ingester.db.repositories.ResourceRepository;
+import cloud.ptl.paperlesswebdavingester.ingester.paperless.dto.PaperlessDocument;
 import com.github.sardine.DavResource;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -13,13 +18,24 @@ import java.util.Optional;
 @Component
 public class ResourceService {
     private final ResourceRepository resourceRepository;
+    private final TagService tagService;
+    private final CorrespondentService correspondentService;
+    private final DocumentTypeService documentTypeService;
 
-    public ResourceService(ResourceRepository resourceRepository) {
+    public ResourceService(ResourceRepository resourceRepository, TagService tagService,
+            CorrespondentService correspondentService, DocumentTypeService documentTypeService) {
         this.resourceRepository = resourceRepository;
+        this.tagService = tagService;
+        this.correspondentService = correspondentService;
+        this.documentTypeService = documentTypeService;
     }
 
     public Resource save(Resource resource) {
         return resourceRepository.save(resource);
+    }
+
+    public Optional<Resource> findByPaperlessId(Long id) {
+        return resourceRepository.findByPaperlessId(id);
     }
 
     public Optional<Resource> findByExternalPath(String path) {
@@ -56,5 +72,21 @@ public class ResourceService {
             resource.setTags(new ArrayList<>());
             return resourceRepository.save(resource);
         }
+    }
+
+    public Resource create(PaperlessDocument paperlessDocument) {
+        Correspondent correspondent = correspondentService.findByPaperlessIdOrFetchFromPaperless(
+                paperlessDocument.getCorrespondent());
+        List<Tag> tags = tagService.findAllByIdOrFetchFromPaperless(paperlessDocument.getTags());
+        tags = tagService.addMissingDefaultTags(tags);
+        DocumentType documentType = documentTypeService.findByPaperlessIdOrFetchFromPaperless(
+                paperlessDocument.getDocument_type());
+        Resource resource = new Resource();
+        resource.setPaperlessId(paperlessDocument.getId());
+        resource.setCorrespondent(correspondent);
+        resource.setTags(tags);
+        resource.setDocumentType(documentType);
+        resource.setLastEdited(LocalDateTime.of(1900, 1, 1, 1, 1));
+        return resourceRepository.save(resource);
     }
 }
