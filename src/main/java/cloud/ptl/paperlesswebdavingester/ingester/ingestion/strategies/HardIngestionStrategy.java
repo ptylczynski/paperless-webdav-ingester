@@ -6,6 +6,7 @@ import cloud.ptl.paperlesswebdavingester.ingester.db.repositories.StatusReposito
 import cloud.ptl.paperlesswebdavingester.ingester.ingestion.IngestionException;
 import cloud.ptl.paperlesswebdavingester.ingester.ingestion.IngestionMode;
 import cloud.ptl.paperlesswebdavingester.ingester.ingestion.IngestionTracker;
+import cloud.ptl.paperlesswebdavingester.ingester.ingestion.Traverser;
 import cloud.ptl.paperlesswebdavingester.ingester.paperless.PaperlessService;
 import cloud.ptl.paperlesswebdavingester.ingester.services.LocalStorageService;
 import cloud.ptl.paperlesswebdavingester.ingester.services.ResourceService;
@@ -18,7 +19,6 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URISyntaxException;
-import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -31,22 +31,24 @@ public class HardIngestionStrategy implements IngestionStrategy {
     private final ResourceService resourceService;
     private final IngestionTracker ingestionTracker;
     private final StatusRepository statusRepository;
+    private final Traverser traverser;
     private Status status;
 
     public HardIngestionStrategy(WebDavService webDavService, LocalStorageService storageService,
             PaperlessService paperlessService, ResourceService resourceService, IngestionTracker ingestionTracker,
-            StatusRepository statusRepository) {
+            StatusRepository statusRepository, Traverser traverser) {
         this.webDavService = webDavService;
         this.storageService = storageService;
         this.paperlessService = paperlessService;
         this.resourceService = resourceService;
         this.ingestionTracker = ingestionTracker;
         this.statusRepository = statusRepository;
+        this.traverser = traverser;
     }
 
     @Override
     public boolean supports(IngestionMode ingestionMode) {
-        return ingestionMode.equals(IngestionMode.HARD);
+        return ingestionMode.equals(IngestionMode.HARD_SYNC_FROM_WEBDAV);
     }
 
     @Override
@@ -57,7 +59,7 @@ public class HardIngestionStrategy implements IngestionStrategy {
     @Override
     public void ingest(Map<Object, Object> params) throws IngestionException {
         try {
-            status = this.ingestionTracker.addOngoingIngestion(IngestionMode.HARD);
+            status = this.ingestionTracker.addOngoingIngestion(IngestionMode.HARD_SYNC_FROM_WEBDAV);
             purge();
             startIngestion(params);
         } catch (IOException | URISyntaxException e) {
@@ -71,11 +73,13 @@ public class HardIngestionStrategy implements IngestionStrategy {
     }
 
     private void startIngestion(Map<Object, Object> params) throws IOException, URISyntaxException {
+        String root;
         if (params.containsKey(Params.ROOT)) {
-            traverse((String) params.get(Params.ROOT));
+            root = (String) params.get(Params.ROOT);
         } else {
-            traverse("/");
+            root = "/";
         }
+        traverser.traverse(root, this::process);
         status = ingestionTracker.endIngestion(status);
     }
 
@@ -88,36 +92,27 @@ public class HardIngestionStrategy implements IngestionStrategy {
         }
     }
 
-    public void traverse(String path) throws IOException, URISyntaxException {
-        List<DavResource> resources = webDavService.list(path);
-        // first is always path, this will cause endless loop
-        resources = resources.subList(1, resources.size());
-        for (DavResource resource : resources) {
-            if (resource.isDirectory()) {
-                traverse(resource.getPath());
-            } else {
-                process(resource);
+    private void process(DavResource webDavResource) {
+        try {
+            log.info("Checking " + webDavResource.getPath());
+            if (!storageService.isSupported(webDavResource)) {
+                log.info("This resource is not supported");
+                return;
             }
+            if (!storageService.isChanged(webDavResource)) {
+                log.info("File not changed");
+                return;
+            }
+            log.info("File changed and supported, downloading");
+            final InputStream inputStream = webDavService.get(webDavResource);
+            Resource resource = storageService.save(inputStream, webDavResource);
+            paperlessService.save(resource);
+            resource = resourceService.save(resource);
+            status = ingestionTracker.addIngestedResource(resource, status);
+            log.info("Resource saved as: " + resource);
+        } catch (IOException | URISyntaxException e) {
+            log.warn("Cannot process resource because of: " + e.getMessage());
         }
-    }
-
-    private void process(DavResource webDavResource) throws IOException, URISyntaxException {
-        log.info("Checking " + webDavResource.getPath());
-        if (!storageService.isSupported(webDavResource)) {
-            log.info("This resource is not supported");
-            return;
-        }
-        if (!storageService.isChanged(webDavResource)) {
-            log.info("File not changed");
-            return;
-        }
-        log.info("File changed and supported, downloading");
-        final InputStream inputStream = webDavService.get(webDavResource);
-        Resource resource = storageService.save(inputStream, webDavResource);
-        paperlessService.save(resource);
-        resource = resourceService.save(resource);
-        status = ingestionTracker.addIngestedResource(resource, status);
-        log.info("Resource saved as: " + resource);
     }
 
     public enum Params {
