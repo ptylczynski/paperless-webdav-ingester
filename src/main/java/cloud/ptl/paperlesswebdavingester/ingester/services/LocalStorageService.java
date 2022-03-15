@@ -1,13 +1,17 @@
 package cloud.ptl.paperlesswebdavingester.ingester.services;
 
 import cloud.ptl.paperlesswebdavingester.ingester.db.models.Resource;
+import cloud.ptl.paperlesswebdavingester.ingester.paperless.dto.PaperlessDocument;
 import com.github.sardine.DavResource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
 
 import java.io.File;
 import java.io.IOException;
@@ -15,6 +19,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.List;
 import java.util.Optional;
 
@@ -31,8 +36,13 @@ public class LocalStorageService {
         this.resourceService = resourceService;
     }
 
-    private Path createPathFromExternalPath(String path) {
-        String fileName = path.substring(path.lastIndexOf("/"));
+    private Path createInternalPath(String path) {
+        String fileName = "";
+        if (path.contains("/")) {
+            fileName = path.substring(path.lastIndexOf("/"));
+        } else {
+            fileName = path;
+        }
         Path internalPath = Path.of(basePath, fileName);
         if (resourceService.existsByInternalPath(internalPath.toString())) {
             // there is more than one file with this name
@@ -54,11 +64,19 @@ public class LocalStorageService {
     }
 
     public Resource save(InputStream inputStream, DavResource davResource) throws IOException {
-        final Path destinationPath = createPathFromExternalPath(davResource.getPath());
+        final Path destinationPath = createInternalPath(davResource.getPath());
         Files.copy(inputStream, destinationPath, StandardCopyOption.REPLACE_EXISTING);
         IOUtils.closeQuietly(inputStream);
         File file = destinationPath.toFile();
         return resourceService.updateResource(davResource, file);
+    }
+
+    public Resource save(Resource resource, Flux<DataBuffer> dataBuffer, PaperlessDocument paperlessDocument) {
+        Path internalPath = createInternalPath(paperlessDocument.getTitle());
+        DataBufferUtils.write(dataBuffer, internalPath, StandardOpenOption.CREATE).block();
+        resource.setInternalPath(internalPath.toAbsolutePath().toString());
+        resource.setIsLocalCopyPresent(true);
+        return resourceService.save(resource);
     }
 
     public boolean isSupported(DavResource davResource) {
