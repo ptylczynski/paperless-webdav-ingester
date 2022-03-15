@@ -8,5 +8,6 @@ import java.util.Optional;
 
 public interface DocumentTypeRepository extends CrudRepository<DocumentType, Long> {
     Optional<DocumentType> findByName(String name);
+    Optional<DocumentType> findByPaperlessId(Long id);
     List<DocumentType> findAllByNameIn(List<String> names);
 }
