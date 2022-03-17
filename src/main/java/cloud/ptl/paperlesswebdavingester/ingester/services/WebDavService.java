@@ -30,9 +30,12 @@ public class WebDavService {
     @Getter
     private String defaultSyncStoragePath;
 
-    public WebDavService(LocalStorageService storageService, Sardine webDavClient) {
+    private final ResourceService resourceService;
+
+    public WebDavService(LocalStorageService storageService, Sardine webDavClient, ResourceService resourceService) {
         this.webDavClient = webDavClient;
         this.storageService = storageService;
+        this.resourceService = resourceService;
     }
 
     private String assembleEncodedPath(String path) throws MalformedURLException, URISyntaxException {
@@ -77,7 +80,10 @@ public class WebDavService {
         if (davResources.isEmpty()) {
             throw new IOException("Cannot get file from WebDav server");
         }
-        return davResources.get(0);
+        DavResource savedResourvce = davResources.get(0);
+        resource.setEtag(savedResourvce.getEtag());
+        resourceService.save(resource);
+        return savedResourvce;
     }
 
     public void purge(String root) throws IOException, URISyntaxException {
