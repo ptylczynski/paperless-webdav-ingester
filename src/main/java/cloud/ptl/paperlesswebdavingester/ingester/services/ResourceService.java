@@ -3,10 +3,10 @@ package cloud.ptl.paperlesswebdavingester.ingester.services;
 import cloud.ptl.paperlesswebdavingester.ingester.db.models.Correspondent;
 import cloud.ptl.paperlesswebdavingester.ingester.db.models.DocumentType;
 import cloud.ptl.paperlesswebdavingester.ingester.db.models.Resource;
-import cloud.ptl.paperlesswebdavingester.ingester.db.models.Tag;
 import cloud.ptl.paperlesswebdavingester.ingester.db.repositories.ResourceRepository;
 import cloud.ptl.paperlesswebdavingester.ingester.paperless.dto.PaperlessDocument;
 import com.github.sardine.DavResource;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
@@ -22,7 +22,7 @@ public class ResourceService {
     private final CorrespondentService correspondentService;
     private final DocumentTypeService documentTypeService;
 
-    public ResourceService(ResourceRepository resourceRepository, TagService tagService,
+    public ResourceService(ResourceRepository resourceRepository, @Lazy TagService tagService,
             CorrespondentService correspondentService, DocumentTypeService documentTypeService) {
         this.resourceRepository = resourceRepository;
         this.tagService = tagService;
@@ -77,14 +77,12 @@ public class ResourceService {
     public Resource create(PaperlessDocument paperlessDocument) {
         Correspondent correspondent = correspondentService.findByPaperlessIdOrFetchFromPaperless(
                 paperlessDocument.getCorrespondent());
-        List<Tag> tags = tagService.findAllByIdOrFetchFromPaperless(paperlessDocument.getTags());
-        tags = tagService.addMissingDefaultTags(tags);
         DocumentType documentType = documentTypeService.findByPaperlessIdOrFetchFromPaperless(
                 paperlessDocument.getDocument_type());
         Resource resource = new Resource();
+        resource = tagService.addMissingDefaultTags(resource, TagService.Direction.PAPERLESS_IMPORT);
         resource.setPaperlessId(paperlessDocument.getId());
         resource.setCorrespondent(correspondent);
-        resource.setTags(tags);
         resource.setDocumentType(documentType);
         resource.setLastEdited(LocalDateTime.of(1900, 1, 1, 1, 1));
         return resourceRepository.save(resource);
