@@ -10,6 +10,7 @@ import cloud.ptl.paperlesswebdavingester.ingester.paperless.PaperlessService;
 import cloud.ptl.paperlesswebdavingester.ingester.paperless.dto.PaperlessDocument;
 import cloud.ptl.paperlesswebdavingester.ingester.services.LocalStorageService;
 import cloud.ptl.paperlesswebdavingester.ingester.services.ResourceService;
+import cloud.ptl.paperlesswebdavingester.ingester.services.TagService;
 import cloud.ptl.paperlesswebdavingester.ingester.services.WebDavService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +32,7 @@ public class SyncIngestionStrategy implements IngestionStrategy {
     private final WebDavService webDavService;
     private final IngestionTracker ingestionTracker;
     private final LocalStorageService localStorageService;
+    private final TagService tagService;
 
     @Override
     public boolean supports(IngestionMode ingestionMode) {
@@ -60,9 +62,11 @@ public class SyncIngestionStrategy implements IngestionStrategy {
                     resource = resourceService.create(paperlessDocument);
                 } else {
                     resource = resourceOptional.get();
+                    resource = tagService.addMissingDefaultTags(resource, TagService.Direction.PAPERLESS_IMPORT);
                 }
                 log.info("Document " + paperlessDocument + " is changed!");
                 paperlessService.download(resource, paperlessDocument);
+                paperlessService.updateDocument(resource, TagService.Direction.PAPERLESS_IMPORT);
                 try {
                     log.info("Downloading resource: " + resource);
                     webDavService.save(resource);
