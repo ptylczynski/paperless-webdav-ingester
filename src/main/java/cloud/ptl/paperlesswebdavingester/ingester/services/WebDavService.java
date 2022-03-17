@@ -68,6 +68,7 @@ public class WebDavService {
         if (resource.getExternalPath() == null || resource.getExternalPath().isBlank()) {
             resource.setExternalPath(assembleExternalPath(resource));
         }
+        log.info("Saving resource " + resource + " to webdav");
         byte[] data = FileUtils.readFileToByteArray(resource.getFile());
         webDavClient.put(assembleEncodedPath(resource.getExternalPath()), data);
         List<DavResource> davResources = webDavClient.list(assembleEncodedPath(resource.getExternalPath()));

@@ -24,6 +24,8 @@ paperless:
   password: instrukcja
   login: piotr
   default:
-    tags: auto-add
+    tags:
+      import-from-webdav: webdav
+      import-from-paperless: sync
     correspondent: ingester
     document-type: ingester-default
