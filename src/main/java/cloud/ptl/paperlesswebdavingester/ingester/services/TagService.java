@@ -1,5 +1,6 @@
 package cloud.ptl.paperlesswebdavingester.ingester.services;
 
+import cloud.ptl.paperlesswebdavingester.ingester.db.models.Resource;
 import cloud.ptl.paperlesswebdavingester.ingester.db.models.Tag;
 import cloud.ptl.paperlesswebdavingester.ingester.db.repositories.TagRepository;
 import cloud.ptl.paperlesswebdavingester.ingester.paperless.PaperlessService;
@@ -8,6 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -16,13 +18,24 @@ import java.util.Optional;
 public class TagService {
     private final PaperlessService paperlessService;
     private final TagRepository tagRepository;
+    private final ResourceService resourceService;
 
-    @Value("#{'${paperless.default.tags}'.split(',')}")
-    private List<String> defaultTags;
+    @Value("#{'${paperless.default.tags.import-from-paperless}'.split(',')}")
+    private List<String> defaultTagsForPaperlessImport;
 
-    public TagService(PaperlessService paperlessService, TagRepository tagRepository) {
+    @Value("#{'${paperless.default.tags.import-from-webdav}'.split(',')}")
+    private List<String> defaultTagsForWebDavImport;
+
+    public TagService(PaperlessService paperlessService, TagRepository tagRepository, ResourceService resourceService) {
         this.paperlessService = paperlessService;
         this.tagRepository = tagRepository;
+        this.resourceService = resourceService;
+    }
+
+    public List<Tag> createDefaultTags() {
+        List<Tag> tags = createMissingTags(defaultTagsForPaperlessImport);
+        tags.addAll(createMissingTags(defaultTagsForWebDavImport));
+        return tags;
     }
 
     public Tag createTag(String name) {
@@ -84,20 +97,41 @@ public class TagService {
         return (List<Tag>) tagRepository.findAll();
     }
 
-    public List<Tag> createDefaultTags() {
-        return createMissingTags(defaultTags);
+    public List<Tag> getDefaultTags(Direction direction) {
+        switch (direction) {
+            case WEBDAV_IMPORT -> {
+                return tagRepository.findAllByNameIn(defaultTagsForWebDavImport);
+            }
+            case PAPERLESS_IMPORT -> {
+                return tagRepository.findAllByNameIn(defaultTagsForPaperlessImport);
+            }
+            default -> {
+                return Collections.emptyList();
+            }
+        }
     }
 
-    public List<Tag> getDefaultTags() {
-        return tagRepository.findAllByNameIn(defaultTags);
+    public Resource addMissingDefaultTags(Resource resource, Direction direction) {
+        List<Tag> tags = addMissingDefaultTags(resource.getTags(), direction);
+        resource.setTags(tags);
+        return resourceService.save(resource);
     }
 
-    public List<Tag> addMissingDefaultTags(List<Tag> tags) {
-        List<Tag> dbDefaultTags = getDefaultTags();
+    public List<Tag> addMissingDefaultTags(List<Tag> tags, Direction direction) {
+        List<Tag> dbDefaultTags = getDefaultTags(direction);
+        if (tags == null || tags.isEmpty()) {
+            return dbDefaultTags;
+        }
         tags.forEach(dbDefaultTags::remove);
         if (!dbDefaultTags.isEmpty()) {
             tags.addAll(dbDefaultTags);
         }
         return tags;
+    }
+
+
+    public enum Direction {
+        PAPERLESS_IMPORT,
+        WEBDAV_IMPORT;
     }
 }
