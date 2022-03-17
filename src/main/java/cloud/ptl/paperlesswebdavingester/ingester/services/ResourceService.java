@@ -47,6 +47,10 @@ public class ResourceService {
         return resourceRepository.findAllByIngestedIn_IngestionMode(ingestionMode);
     }
 
+    public List<Resource> findAllByIsLocalResourcePresent() {
+        return resourceRepository.findAllByIsLocalCopyPresent(true);
+    }
+
     public boolean existsByInternalPath(String path) {
         return resourceRepository.existsByInternalPath(path);
     }
