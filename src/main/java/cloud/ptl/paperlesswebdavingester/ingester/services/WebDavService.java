@@ -4,6 +4,7 @@ import cloud.ptl.paperlesswebdavingester.ingester.db.models.Resource;
 import cloud.ptl.paperlesswebdavingester.ingester.db.models.Tag;
 import com.github.sardine.DavResource;
 import com.github.sardine.Sardine;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,6 +27,7 @@ public class WebDavService {
     @Value("${webdav.host}")
     private String host;
     @Value("${webdav.default.sync-storage-path}")
+    @Getter
     private String defaultSyncStoragePath;
 
     public WebDavService(LocalStorageService storageService, Sardine webDavClient) {
@@ -76,6 +78,13 @@ public class WebDavService {
             throw new IOException("Cannot get file from WebDav server");
         }
         return davResources.get(0);
+    }
+
+    public void purge(String root) throws IOException, URISyntaxException {
+        List<DavResource> resources = list(root).stream().skip(1).toList();
+        for (DavResource resource : resources) {
+            webDavClient.delete(assembleEncodedPath(resource.getPath()));
+        }
     }
 
     public List<DavResource> list(DavResource resource) throws IOException, URISyntaxException {
