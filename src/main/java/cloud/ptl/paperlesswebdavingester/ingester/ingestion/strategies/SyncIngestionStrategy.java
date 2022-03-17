@@ -51,6 +51,23 @@ public class SyncIngestionStrategy implements IngestionStrategy {
 
     @Override
     public void ingest() throws IngestionException {
+        purge();
+        proess();
+    }
+
+    private void purge() {
+        try {
+            webDavService.purge(webDavService.getDefaultSyncStoragePath());
+            resourceService.findAllByIngestionMode(IngestionMode.HARD_SYNC_FROM_PAPERLESS).forEach(e -> {
+                log.info("Deleting: " + e);
+                resourceService.delete(e);
+            });
+        } catch (IOException | URISyntaxException e) {
+            log.error("Cannot purge files in webdav because of: " + e.getMessage());
+        }
+    }
+
+    private void proess() {
         Status status = ingestionTracker.addOngoingIngestion(IngestionMode.HARD_SYNC_FROM_PAPERLESS);
         List<PaperlessDocument> allDocuments = paperlessService.getAllDocuments();
         for (PaperlessDocument paperlessDocument : allDocuments) {
