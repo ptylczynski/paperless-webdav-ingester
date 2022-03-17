@@ -72,7 +72,7 @@ public class PaperlessService {
         try {
             saveWithHashedName(resource);
             getIdFromPaperless(resource, true);
-            swapNameTo(resource, resource.getFileName());
+            swapNameTo(resource);
         } catch (RestClientException e) {
             log.error("Exception during saving resource to paperless: " + e.getMessage());
         }
@@ -143,22 +143,39 @@ public class PaperlessService {
         return localStorageService.save(resource, dataBufferFlux, paperlessDocument).getFile();
     }
 
-    public void swapNameTo(Resource resource, String newName) {
-        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
-        Tag tag = tagService.getDefaultTags().get(0);
+    public void swapNameTo(Resource resource) {
+        Tag tag = tagService.getDefaultTags(TagService.Direction.WEBDAV_IMPORT).get(0);
         Correspondent correspondent = correspondentService.getDefaultCorrespondent().get(0);
         DocumentType documentType = documentTypeService.getDefaultDocumentType().get(0);
-        form.add("title", newName);
-        form.add("archive_serial_number", resource.getId().toString());
-        form.add("correspondent", correspondent.getPaperlessId().toString());
-        form.add("document_type", documentType.getPaperlessId().toString());
-        form.add("tags", tag.getPaperlessId().toString());
-        paperlessClient.put().uri("api/documents/" + resource.getPaperlessId() + "/")
-                .contentType(MediaType.APPLICATION_FORM_URLENCODED).body(BodyInserters.fromFormData(form)).retrieve()
-                .bodyToMono(PaperlessDocument.class).block();
         resource.getTags().add(tag);
         resource.setCorrespondent(correspondent);
         resource.setDocumentType(documentType);
+        updateDocument(resource, TagService.Direction.WEBDAV_IMPORT);
+    }
+
+    public PaperlessDocument updateDocument(Resource resource, TagService.Direction direction) {
+        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+        form.add("title", resource.getFileName());
+        form.add("archive_serial_number", resource.getId().toString());
+        if (resource.getCorrespondent() == null) {
+            form.add("correspondent",
+                    correspondentService.getDefaultCorrespondent().get(0).getPaperlessId().toString());
+        } else {
+            form.add("correspondent", resource.getCorrespondent().getPaperlessId().toString());
+        }
+        if (resource.getDocumentType() == null) {
+            form.add("document_type", documentTypeService.getDefaultDocumentType().get(0).getPaperlessId().toString());
+        } else {
+            form.add("document_type", resource.getDocumentType().getPaperlessId().toString());
+        }
+        if (resource.getTags() == null) {
+            form.add("tags", tagService.getDefaultTags(direction).get(0).getPaperlessId().toString());
+        } else {
+            form.add("tags", resource.getTags().get(0).getPaperlessId().toString());
+        }
+        return paperlessClient.put().uri("api/documents/" + resource.getPaperlessId() + "/")
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED).body(BodyInserters.fromFormData(form)).retrieve()
+                .bodyToMono(PaperlessDocument.class).block();
     }
 
     private void makeTimeout(int retry) {
