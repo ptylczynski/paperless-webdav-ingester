@@ -52,7 +52,7 @@ public class SyncIngestionStrategy implements IngestionStrategy {
     @Override
     public void ingest() throws IngestionException {
         purge();
-        proess();
+        process();
     }
 
     private void purge() {
@@ -67,9 +67,12 @@ public class SyncIngestionStrategy implements IngestionStrategy {
         }
     }
 
-    private void proess() {
+    private void process() {
         Status status = ingestionTracker.addOngoingIngestion(IngestionMode.HARD_SYNC_FROM_PAPERLESS);
         List<PaperlessDocument> allDocuments = paperlessService.getAllDocuments();
+        if (allDocuments.isEmpty()) {
+            log.info("There is no documents in Paperless");
+        }
         for (PaperlessDocument paperlessDocument : allDocuments) {
             log.info("Syncing from paperless documetn: " + paperlessDocument);
             if (paperlessService.isChanged(paperlessDocument)) {
