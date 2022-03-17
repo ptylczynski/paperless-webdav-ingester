@@ -9,6 +9,7 @@ import java.util.Optional;
 
 public interface ResourceRepository extends CrudRepository<Resource, Long> {
     List<Resource> findAllByIngestedIn_IngestionMode(IngestionMode ingestionMode);
+    List<Resource> findAllByIsLocalCopyPresent(Boolean isLocalCopyPresent);
     Optional<Resource> findByPaperlessId(Long paperlessId);
     Optional<Resource> findByExternalPath(String externalPath);
     boolean existsByInternalPath(String internalPath);
