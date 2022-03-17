@@ -4,6 +4,7 @@ import cloud.ptl.paperlesswebdavingester.ingester.db.models.Correspondent;
 import cloud.ptl.paperlesswebdavingester.ingester.db.models.DocumentType;
 import cloud.ptl.paperlesswebdavingester.ingester.db.models.Resource;
 import cloud.ptl.paperlesswebdavingester.ingester.db.repositories.ResourceRepository;
+import cloud.ptl.paperlesswebdavingester.ingester.ingestion.IngestionMode;
 import cloud.ptl.paperlesswebdavingester.ingester.paperless.dto.PaperlessDocument;
 import com.github.sardine.DavResource;
 import org.springframework.context.annotation.Lazy;
@@ -40,6 +41,10 @@ public class ResourceService {
 
     public Optional<Resource> findByExternalPath(String path) {
         return resourceRepository.findByExternalPath(path);
+    }
+
+    public List<Resource> findAllByIngestionMode(IngestionMode ingestionMode) {
+        return resourceRepository.findAllByIngestedIn_IngestionMode(ingestionMode);
     }
 
     public boolean existsByInternalPath(String path) {
