@@ -6,10 +6,7 @@ import cloud.ptl.paperlesswebdavingester.ingester.db.models.Resource;
 import cloud.ptl.paperlesswebdavingester.ingester.db.models.Tag;
 import cloud.ptl.paperlesswebdavingester.ingester.db.repositories.ResourceRepository;
 import cloud.ptl.paperlesswebdavingester.ingester.paperless.dto.*;
-import cloud.ptl.paperlesswebdavingester.ingester.services.CorrespondentService;
-import cloud.ptl.paperlesswebdavingester.ingester.services.DocumentTypeService;
-import cloud.ptl.paperlesswebdavingester.ingester.services.LocalStorageService;
-import cloud.ptl.paperlesswebdavingester.ingester.services.TagService;
+import cloud.ptl.paperlesswebdavingester.ingester.services.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.core.io.FileSystemResource;
@@ -48,16 +45,19 @@ public class PaperlessService {
     private final CorrespondentService correspondentService;
     private final DocumentTypeService documentTypeService;
     private final LocalStorageService localStorageService;
+    private final ASNService asnService;
 
     public PaperlessService(PaperlessConnectionInfo paperlessConnectionInfo, ResourceRepository resourceRepository,
             @Lazy TagService tagService, @Lazy CorrespondentService correspondentService,
-            @Lazy DocumentTypeService documentTypeService, @Lazy LocalStorageService localStorageService) {
+            @Lazy DocumentTypeService documentTypeService, @Lazy LocalStorageService localStorageService,
+            @Lazy ASNService asnService) {
         this.paperlessConnectionInfo = paperlessConnectionInfo;
         this.resourceRepository = resourceRepository;
         this.tagService = tagService;
         this.correspondentService = correspondentService;
         this.documentTypeService = documentTypeService;
         this.localStorageService = localStorageService;
+        this.asnService = asnService;
     }
 
     @PostConstruct
@@ -156,7 +156,7 @@ public class PaperlessService {
     public PaperlessDocument updateDocument(Resource resource, TagService.Direction direction) {
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
         form.add("title", resource.getFileName());
-        form.add("archive_serial_number", resource.getId().toString());
+        form.add("archive_serial_number", asnService.getASN(resource).toString());
         if (resource.getCorrespondent() == null) {
             form.add("correspondent",
                     correspondentService.getDefaultCorrespondent().get(0).getPaperlessId().toString());
