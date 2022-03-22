@@ -75,32 +75,60 @@ public class SyncIngestionStrategy implements IngestionStrategy {
         }
         for (PaperlessDocument paperlessDocument : allDocuments) {
             log.info("Syncing from paperless documetn: " + paperlessDocument);
-            if (paperlessService.isChanged(paperlessDocument)) {
-                Optional<Resource> resourceOptional = resourceService.findByPaperlessId(paperlessDocument.getId());
-                Resource resource = null;
-                if (resourceOptional.isEmpty()) {
-                    resource = resourceService.create(paperlessDocument);
-                } else {
-                    resource = resourceOptional.get();
-                    resource = tagService.addMissingDefaultTags(resource, TagService.Direction.PAPERLESS_IMPORT);
-                }
-                log.info("Document " + paperlessDocument + " is changed!");
-                paperlessService.download(resource, paperlessDocument);
-                paperlessService.updateDocument(resource, TagService.Direction.PAPERLESS_IMPORT);
+            boolean isChanged = paperlessService.isChanged(paperlessDocument);
+            boolean isSupported = tagService.hasAnyDefaultTagForDirection(paperlessDocument,
+                    TagService.Direction.PAPERLESS_IMPORT);
+            if (isChanged && isSupported) {
+                Resource resource = getResource(paperlessDocument);
+                log.info("Document " + paperlessDocument + " is changed and supported!");
                 try {
                     log.info("Downloading resource: " + resource);
-                    webDavService.save(resource);
-                    status = ingestionTracker.addIngestedResource(resource, status);
-                    localStorageService.removeLocalCopy(resource);
-                    resource.updateLastEdited();
-                    resourceService.save(resource);
+                    downloadResource(resource, paperlessDocument, status);
                 } catch (IOException | URISyntaxException e) {
                     log.error("Cannot save file to webdav because of: " + e.getMessage());
                     e.printStackTrace();
                 }
             }
-            log.info("Document " + paperlessDocument + " has no changes, not syncing");
+            addRejectionCauseMessageToConsole(isChanged, isSupported, paperlessDocument);
         }
         ingestionTracker.endIngestion(status);
+    }
+
+    private Resource getResource(PaperlessDocument paperlessDocument) {
+        Optional<Resource> resourceOptional = resourceService.findByPaperlessId(paperlessDocument.getId());
+        Resource resource = null;
+        if (resourceOptional.isEmpty()) {
+            resource = resourceService.create(paperlessDocument);
+        } else {
+            resource = resourceOptional.get();
+            resource = tagService.addMissingDefaultTags(resource, TagService.Direction.PAPERLESS_IMPORT);
+        }
+        return resource;
+    }
+
+    private void downloadResource(Resource resource, PaperlessDocument paperlessDocument, Status status) throws
+            IOException, URISyntaxException {
+        paperlessService.download(resource, paperlessDocument);
+        paperlessService.updateDocument(resource, TagService.Direction.PAPERLESS_IMPORT);
+        log.info("Resource: " + resource + " updated to paperless");
+        webDavService.save(resource);
+        ingestionTracker.addIngestedResource(resource, status);
+        localStorageService.removeLocalCopy(resource);
+        resource.updateLastEdited();
+        resourceService.save(resource);
+    }
+
+    private void addRejectionCauseMessageToConsole(boolean isChanged, boolean isSupported,
+            PaperlessDocument paperlessDocument) {
+        StringBuilder stringBuilder = new StringBuilder();
+        stringBuilder.append("Document ").append(paperlessDocument).append(" is ");
+        if (!isChanged) {
+            stringBuilder.append("not changed, ");
+        }
+        if (!isSupported) {
+            stringBuilder.append("not supported ");
+        }
+        stringBuilder.append("not syncing");
+        log.info(stringBuilder.toString());
     }
 }
