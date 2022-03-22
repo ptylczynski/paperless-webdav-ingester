@@ -4,6 +4,7 @@ import cloud.ptl.paperlesswebdavingester.ingester.db.models.Resource;
 import cloud.ptl.paperlesswebdavingester.ingester.db.models.Tag;
 import cloud.ptl.paperlesswebdavingester.ingester.db.repositories.TagRepository;
 import cloud.ptl.paperlesswebdavingester.ingester.paperless.PaperlessService;
+import cloud.ptl.paperlesswebdavingester.ingester.paperless.dto.PaperlessDocument;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -129,6 +130,15 @@ public class TagService {
         return tags;
     }
 
+    public boolean hasAnyDefaultTagForDirection(PaperlessDocument document, Direction direction) {
+        List<String> defaultTags = getDefaultTags(direction).stream().map(e -> e.getPaperlessId().toString()).toList();
+        return document.getTags().stream().anyMatch(defaultTags::contains);
+    }
+
+    public boolean hasTag(PaperlessDocument document, Tag tag) {
+        String tagId = tag.getPaperlessId().toString();
+        return document.getTags().stream().anyMatch(e -> e.equals(tagId));
+    }
 
     public enum Direction {
         PAPERLESS_IMPORT,
