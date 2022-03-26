@@ -76,9 +76,10 @@ public class SyncIngestionStrategy implements IngestionStrategy {
         for (PaperlessDocument paperlessDocument : allDocuments) {
             log.info("Syncing from paperless documetn: " + paperlessDocument);
             boolean isChanged = paperlessService.isChanged(paperlessDocument);
-            boolean isSupported = tagService.hasAnyDefaultTagForDirection(paperlessDocument,
+            boolean hasProperTag = tagService.hasAnyDefaultTagForDirection(paperlessDocument,
                     TagService.Direction.PAPERLESS_IMPORT);
-            if (isChanged && isSupported) {
+            boolean isSupported = true;
+            if (isChanged && isSupported && hasProperTag) {
                 Resource resource = getResource(paperlessDocument);
                 log.info("Document " + paperlessDocument + " is changed and supported!");
                 try {
@@ -89,7 +90,7 @@ public class SyncIngestionStrategy implements IngestionStrategy {
                     e.printStackTrace();
                 }
             }
-            addRejectionCauseMessageToConsole(isChanged, isSupported, paperlessDocument);
+            addRejectionCauseMessageToConsole(isChanged, isSupported, hasProperTag, paperlessDocument);
         }
         ingestionTracker.endIngestion(status);
     }
@@ -118,7 +119,7 @@ public class SyncIngestionStrategy implements IngestionStrategy {
         resourceService.save(resource);
     }
 
-    private void addRejectionCauseMessageToConsole(boolean isChanged, boolean isSupported,
+    private void addRejectionCauseMessageToConsole(boolean isChanged, boolean isSupported, boolean hasProperTag,
             PaperlessDocument paperlessDocument) {
         StringBuilder stringBuilder = new StringBuilder();
         stringBuilder.append("Document ").append(paperlessDocument).append(" is ");
@@ -127,6 +128,9 @@ public class SyncIngestionStrategy implements IngestionStrategy {
         }
         if (!isSupported) {
             stringBuilder.append("not supported ");
+        }
+        if (!hasProperTag) {
+            stringBuilder.append("does not have proper tag ");
         }
         stringBuilder.append("not syncing");
         log.info(stringBuilder.toString());
