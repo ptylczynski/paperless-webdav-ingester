@@ -84,7 +84,7 @@ public class HardIngestionStrategy implements IngestionStrategy {
     }
 
     private void purge() {
-        for (Resource resource : resourceService.findAll()) {
+        for (Resource resource : resourceService.findAllByIngestionMode(IngestionMode.HARD_SYNC_FROM_WEBDAV)) {
             log.info("Removing: " + resource);
             paperlessService.delete(resource);
             resourceService.delete(resource);
