@@ -115,7 +115,6 @@ public class SyncIngestionStrategy implements IngestionStrategy {
         webDavService.save(resource);
         ingestionTracker.addIngestedResource(resource, status);
         localStorageService.removeLocalCopy(resource);
-        resource.updateLastEdited();
         resourceService.save(resource);
     }
 

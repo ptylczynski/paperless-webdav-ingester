@@ -32,6 +32,7 @@ public class ResourceService {
     }
 
     public Resource save(Resource resource) {
+        resource.updateLastEdited();
         return resourceRepository.save(resource);
     }
 
